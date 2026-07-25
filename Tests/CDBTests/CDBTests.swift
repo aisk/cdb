@@ -27,7 +27,7 @@ final class CDBTests: XCTestCase {
         XCTAssertEqual(count2, 0)
 
         var items: [String: String] = [:]
-        for (key, value) in db2 {
+        try db2.forEach { key, value in
             items[key] = value
         }
         XCTAssertEqual(items, ["foo": "bar", "hello": "world", "binary": "\u{01}\u{02}\u{03}\u{04}"])
