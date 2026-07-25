@@ -141,4 +141,25 @@ final class CDBTests: XCTestCase {
         XCTAssertEqual(value, "1")
         try reader.close()
     }
+
+    func testBinaryKeysAndIteration() throws {
+        let binaryKey = Data([0x00, 0xff, 0x01])
+        let binaryValue = Data([0xfe, 0x00, 0x02])
+        let writer = try CDB(filename: "binary_key_test.cdb", mode: .write)
+        try writer.add(key: binaryKey, value: binaryValue)
+        try writer.close()
+
+        let reader = try CDB(filename: "binary_key_test.cdb", mode: .read)
+        XCTAssertEqual(try reader.data(forKey: binaryKey), binaryValue)
+        XCTAssertEqual(try reader.count(key: binaryKey), 1)
+
+        var entries: [(Data, Data)] = []
+        try reader.forEachData { key, value in
+            entries.append((key, value))
+        }
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries.first?.0, binaryKey)
+        XCTAssertEqual(entries.first?.1, binaryValue)
+        try reader.close()
+    }
 }

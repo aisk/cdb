@@ -12,6 +12,20 @@ extension cdb_buffer_t {
     }
 }
 
+private func withCDBBuffer<Result>(
+    for data: Data,
+    _ body: (inout cdb_buffer_t) throws -> Result
+) rethrows -> Result {
+    var emptyByte: Int8 = 0
+    return try withUnsafePointer(to: &emptyByte) { emptyPointer in
+        try data.withUnsafeBytes { bytes in
+            let pointer = bytes.baseAddress?.assumingMemoryBound(to: Int8.self) ?? emptyPointer
+            var buffer = cdb_buffer_t(length: UInt64(data.count), buffer: pointer)
+            return try body(&buffer)
+        }
+    }
+}
+
 public struct CDBError: Error {
     public let errno: Int
     public let operation: String
@@ -45,15 +59,24 @@ public class CDB {
     }
 
     public func add(key: String, value: String) throws {
+        try add(key: Data(key.utf8), value: Data(value.utf8))
+    }
+
+    public func add(key: String, value: Data) throws {
+        try add(key: Data(key.utf8), value: value)
+    }
+
+    public func add(key: Data, value: String) throws {
+        try add(key: key, value: Data(value.utf8))
+    }
+
+    public func add(key: Data, value: Data) throws {
         guard !isClosed else {
             throw CDBError(errno: -1, operation: "add")
         }
 
-        try key.withCString { cKey in
-            try value.withCString { cValue in
-                var keyBuffer = cdb_buffer_t(length: UInt64(key.utf8.count), buffer: cKey)
-                var valueBuffer = cdb_buffer_t(length: UInt64(value.utf8.count), buffer: cValue)
-
+        try withCDBBuffer(for: key) { keyBuffer in
+            try withCDBBuffer(for: value) { valueBuffer in
                 let res = cdb_add(db, &keyBuffer, &valueBuffer)
                 if res != 0 {
                     throw CDBError(errno: Int(res), operation: "add")
@@ -62,56 +85,27 @@ public class CDB {
         }
     }
 
-    public func add(key: String, value: Data) throws {
-        guard !isClosed else {
-            throw CDBError(errno: -1, operation: "add")
-        }
-
-        try key.withCString { cKey in
-            let res = value.withUnsafeBytes { valueBytes -> Int32 in
-                var keyBuffer = cdb_buffer_t(length: UInt64(key.utf8.count), buffer: cKey)
-                // For an empty Data, baseAddress is nil; pass a non-null dummy
-                // pointer since the C side won't read any bytes when length is 0.
-                let valuePtr = valueBytes.baseAddress?.assumingMemoryBound(to: Int8.self) ?? cKey
-                var valueBuffer = cdb_buffer_t(length: UInt64(value.count), buffer: valuePtr)
-
-                return cdb_add(db, &keyBuffer, &valueBuffer)
-            }
-
-            if res != 0 {
-                throw CDBError(errno: Int(res), operation: "add")
-            }
-        }
+    public func string(forKey key: String, at index: UInt64 = 0) throws -> String? {
+        try string(forKey: Data(key.utf8), at: index)
     }
 
-    public func string(forKey key: String, at index: UInt64 = 0) throws -> String? {
-        guard !isClosed else {
-            throw CDBError(errno: -1, operation: "get")
+    public func string(forKey key: Data, at index: UInt64 = 0) throws -> String? {
+        guard let data = try data(forKey: key, at: index) else {
+            return nil
         }
-
-        return try key.withCString { cKey in
-            var keyBuffer = cdb_buffer_t(length: UInt64(key.utf8.count), buffer: cKey)
-            var value_info = cdb_file_pos_t(position: 0, length: 0)
-
-            let res = cdb_lookup(self.db, &keyBuffer, &value_info, index)
-            if res == 0 {
-                return nil
-            }
-            if res != 1 {
-                throw CDBError(errno: Int(res), operation: "lookup")
-            }
-
-            return try readString(at: value_info)
-        }
+        return String(decoding: data, as: UTF8.self)
     }
 
     public func data(forKey key: String, at index: UInt64 = 0) throws -> Data? {
+        try data(forKey: Data(key.utf8), at: index)
+    }
+
+    public func data(forKey key: Data, at index: UInt64 = 0) throws -> Data? {
         guard !isClosed else {
             throw CDBError(errno: -1, operation: "get")
         }
 
-        return try key.withCString { cKey in
-            var keyBuffer = cdb_buffer_t(length: UInt64(key.utf8.count), buffer: cKey)
+        return try withCDBBuffer(for: key) { keyBuffer in
             var value_info = cdb_file_pos_t(position: 0, length: 0)
 
             let res = cdb_lookup(self.db, &keyBuffer, &value_info, index)
@@ -127,12 +121,15 @@ public class CDB {
     }
 
     public func count(key: String) throws -> UInt64 {
+        try count(key: Data(key.utf8))
+    }
+
+    public func count(key: Data) throws -> UInt64 {
         guard !isClosed else {
             throw CDBError(errno: -1, operation: "count")
         }
 
-        return try key.withCString { cKey in
-            var keyBuffer = cdb_buffer_t(length: UInt64(key.utf8.count), buffer: cKey)
+        return try withCDBBuffer(for: key) { keyBuffer in
             var result: UInt64 = 0
 
             let res = cdb_count(self.db, &keyBuffer, &result)
@@ -168,18 +165,30 @@ public class CDB {
     ///
     /// The callback must not close this database.
     public func forEach(_ body: @escaping (String, String) throws -> Void) throws {
+        try forEachData { key, value in
+            try body(
+                String(decoding: key, as: UTF8.self),
+                String(decoding: value, as: UTF8.self)
+            )
+        }
+    }
+
+    /// Visits every key-value pair without decoding its bytes.
+    ///
+    /// The callback must not close this database.
+    public func forEachData(_ body: @escaping (Data, Data) throws -> Void) throws {
         guard !isClosed else {
-            throw CDBError(errno: -1, operation: "forEach")
+            throw CDBError(errno: -1, operation: "forEachData")
         }
 
         activeIterationCount += 1
         defer { activeIterationCount -= 1 }
 
-        let helper = ForEachHelper(cdb: self, body: body)
+        let helper = ForEachDataHelper(cdb: self, body: body)
         let helperPtr = Unmanaged.passUnretained(helper).toOpaque()
 
         let callback: cdb_callback = { cdb, key, value, param in
-            let helper = Unmanaged<ForEachHelper>.fromOpaque(param!).takeUnretainedValue()
+            let helper = Unmanaged<ForEachDataHelper>.fromOpaque(param!).takeUnretainedValue()
             do {
                 try helper.handle(keyPos: key!.pointee, valuePos: value!.pointee)
                 return 0
@@ -242,20 +251,20 @@ public class CDB {
     }
 }
 
-private class ForEachHelper {
+private class ForEachDataHelper {
     private weak var cdb: CDB?
-    private let body: (String, String) throws -> Void
+    private let body: (Data, Data) throws -> Void
     var error: Error?
 
-    init(cdb: CDB, body: @escaping (String, String) throws -> Void) {
+    init(cdb: CDB, body: @escaping (Data, Data) throws -> Void) {
         self.cdb = cdb
         self.body = body
     }
 
     func handle(keyPos: cdb_file_pos_t, valuePos: cdb_file_pos_t) throws {
         guard let cdb = cdb else { return }
-        let key = try cdb.readString(at: keyPos)
-        let value = try cdb.readString(at: valuePos)
+        let key = try cdb.readData(at: keyPos)
+        let value = try cdb.readData(at: valuePos)
         try body(key, value)
     }
 }

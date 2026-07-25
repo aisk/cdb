@@ -39,9 +39,12 @@ do {
 - `init(filename: String, mode: Mode) throws` - Open a CDB file
 - `add(key: String, value: String) throws` - Add a string value
 - `add(key: String, value: Data) throws` - Add binary data
+- `add(key: Data, value: String) throws` - Add a string value with a binary key
+- `add(key: Data, value: Data) throws` - Add a binary key and value
 - `string(forKey: String, at index: UInt64 = 0) throws -> String?` - Get a string value
 - `data(forKey: String, at index: UInt64 = 0) throws -> Data?` - Get binary data
 - `count(key: String) throws -> UInt64` - Count values for a key
+- `forEachData(_:) throws` - Visit all keys and values without decoding
 - `close() throws` - Close the database
 - `subscript(key: String) throws -> String?` - Dictionary-like access
 
