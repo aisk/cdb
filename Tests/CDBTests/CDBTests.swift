@@ -17,11 +17,11 @@ final class CDBTests: XCTestCase {
         try db1.close()
 
         let db2 = try CDB(filename: "example.cdb", mode: .read)
-        let value1: String? = try db2.get(key: "foo")
+        let value1 = try db2.string(forKey: "foo")
         XCTAssertEqual(value1, Optional("bar"))
         let count1 = try db2.count(key: "foo")
         XCTAssertEqual(count1, 1)
-        let value2: String? = try db2.get(key: "not_exist")
+        let value2 = try db2.string(forKey: "not_exist")
         XCTAssertEqual(value2, nil)
         let count2 = try db2.count(key: "not_exist")
         XCTAssertEqual(count2, 0)
@@ -36,7 +36,7 @@ final class CDBTests: XCTestCase {
         XCTAssertEqual(try db2["hello"], "world")
         XCTAssertNil(try db2["nonexistent"])
 
-        let retrievedData: Data? = try db2.get(key: "binary")
+        let retrievedData = try db2.data(forKey: "binary")
         XCTAssertEqual(retrievedData, testData)
 
         try db2.close()
@@ -55,15 +55,15 @@ final class CDBTests: XCTestCase {
         let db2 = try CDB(filename: "binary_null_test.cdb", mode: .read)
 
         // Data API: full bytes preserved, not truncated at the first 0x00.
-        let data: Data? = try db2.get(key: "withNull")
+        let data = try db2.data(forKey: "withNull")
         XCTAssertEqual(data, withNull)
 
         // String API reads by length too, so length is preserved.
-        let str: String? = try db2.get(key: "withNull")
+        let str = try db2.string(forKey: "withNull")
         XCTAssertEqual(str?.utf8.count, withNull.count)
 
         // Empty Data round-trips without crashing on a nil baseAddress.
-        let emptyData: Data? = try db2.get(key: "empty")
+        let emptyData = try db2.data(forKey: "empty")
         XCTAssertEqual(emptyData, Data())
 
         try db2.close()
@@ -137,7 +137,7 @@ final class CDBTests: XCTestCase {
 
         XCTAssertNotNil(closeError)
         XCTAssertEqual(count, 2)
-        let value: String? = try reader.get(key: "a")
+        let value = try reader.string(forKey: "a")
         XCTAssertEqual(value, "1")
         try reader.close()
     }

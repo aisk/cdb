@@ -84,7 +84,7 @@ public class CDB {
         }
     }
 
-    public func get(key: String, at index: UInt64=0) throws -> String? {
+    public func string(forKey key: String, at index: UInt64 = 0) throws -> String? {
         guard !isClosed else {
             throw CDBError(errno: -1, operation: "get")
         }
@@ -105,7 +105,7 @@ public class CDB {
         }
     }
 
-    public func get(key: String, at index: UInt64=0) throws -> Data? {
+    public func data(forKey key: String, at index: UInt64 = 0) throws -> Data? {
         guard !isClosed else {
             throw CDBError(errno: -1, operation: "get")
         }
@@ -237,7 +237,7 @@ public class CDB {
 
     public subscript(key: String) -> String? {
         get throws {
-            return try get(key: key)
+            return try string(forKey: key)
         }
     }
 }

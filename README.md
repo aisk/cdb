@@ -23,7 +23,7 @@ do {
     let db = try CDB(filename: "example.cdb", mode: .read)
 
     // Read string value
-    let value: String? = try db.get(key: "some_key")
+    let value = try db.string(forKey: "some_key")
     print("Value: \(value ?? "not found")")
 
     try db.close()
@@ -39,8 +39,8 @@ do {
 - `init(filename: String, mode: Mode) throws` - Open a CDB file
 - `add(key: String, value: String) throws` - Add a string value
 - `add(key: String, value: Data) throws` - Add binary data
-- `get(key: String, at index: UInt64 = 0) throws -> String?` - Get string value
-- `get(key: String, at index: UInt64 = 0) throws -> Data?` - Get binary data
+- `string(forKey: String, at index: UInt64 = 0) throws -> String?` - Get a string value
+- `data(forKey: String, at index: UInt64 = 0) throws -> Data?` - Get binary data
 - `count(key: String) throws -> UInt64` - Count values for a key
 - `close() throws` - Close the database
 - `subscript(key: String) throws -> String?` - Dictionary-like access
