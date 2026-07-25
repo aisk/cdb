@@ -135,7 +135,10 @@ final class CDBTests: XCTestCase {
             }
         }
 
-        XCTAssertNotNil(closeError)
+        XCTAssertEqual(
+            closeError as? CDBError,
+            .operationInProgress(operation: "close")
+        )
         XCTAssertEqual(count, 2)
         let value = try reader.string(forKey: "a")
         XCTAssertEqual(value, "1")

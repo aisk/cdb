@@ -26,12 +26,20 @@ private func withCDBBuffer<Result>(
     }
 }
 
-public struct CDBError: Error {
-    public let errno: Int
-    public let operation: String
+public enum CDBError: Error, LocalizedError, Equatable {
+    case closed(operation: String)
+    case operationInProgress(operation: String)
+    case native(operation: String, code: Int)
 
-    public var localizedDescription: String {
-        return "CDB \(operation) failed with error code: \(errno)"
+    public var errorDescription: String? {
+        switch self {
+        case .closed(let operation):
+            return "Cannot perform CDB \(operation) because the database is closed"
+        case .operationInProgress(let operation):
+            return "Cannot perform CDB \(operation) while another operation is in progress"
+        case .native(let operation, let code):
+            return "CDB \(operation) failed with error code: \(code)"
+        }
     }
 }
 
@@ -54,7 +62,7 @@ public class CDB {
         var raw_options = cdb_host_options
         let res = cdb_open(&self.db, &raw_options, mode.rawValue, filename)
         if res != 0 {
-            throw CDBError(errno: Int(res), operation: "open")
+            throw CDBError.native(operation: "open", code: Int(res))
         }
     }
 
@@ -72,14 +80,14 @@ public class CDB {
 
     public func add(key: Data, value: Data) throws {
         guard !isClosed else {
-            throw CDBError(errno: -1, operation: "add")
+            throw CDBError.closed(operation: "add")
         }
 
         try withCDBBuffer(for: key) { keyBuffer in
             try withCDBBuffer(for: value) { valueBuffer in
                 let res = cdb_add(db, &keyBuffer, &valueBuffer)
                 if res != 0 {
-                    throw CDBError(errno: Int(res), operation: "add")
+                    throw CDBError.native(operation: "add", code: Int(res))
                 }
             }
         }
@@ -102,7 +110,7 @@ public class CDB {
 
     public func data(forKey key: Data, at index: UInt64 = 0) throws -> Data? {
         guard !isClosed else {
-            throw CDBError(errno: -1, operation: "get")
+            throw CDBError.closed(operation: "get")
         }
 
         return try withCDBBuffer(for: key) { keyBuffer in
@@ -113,7 +121,7 @@ public class CDB {
                 return nil
             }
             if res != 1 {
-                throw CDBError(errno: Int(res), operation: "lookup")
+                throw CDBError.native(operation: "lookup", code: Int(res))
             }
 
             return try readData(at: value_info)
@@ -126,7 +134,7 @@ public class CDB {
 
     public func count(key: Data) throws -> UInt64 {
         guard !isClosed else {
-            throw CDBError(errno: -1, operation: "count")
+            throw CDBError.closed(operation: "count")
         }
 
         return try withCDBBuffer(for: key) { keyBuffer in
@@ -134,7 +142,7 @@ public class CDB {
 
             let res = cdb_count(self.db, &keyBuffer, &result)
             if res != 0 {
-                throw CDBError(errno: Int(res), operation: "count")
+                throw CDBError.native(operation: "count", code: Int(res))
             }
 
             return result
@@ -147,7 +155,7 @@ public class CDB {
     public func close() throws {
         guard !isClosed else { return }
         guard activeIterationCount == 0 else {
-            throw CDBError(errno: -1, operation: "close during iteration")
+            throw CDBError.operationInProgress(operation: "close")
         }
         // cdb_close always releases the underlying handle, including when
         // finalization or closing the file fails.
@@ -157,7 +165,7 @@ public class CDB {
 
         let res = cdb_close(handle)
         if res != 0 {
-            throw CDBError(errno: Int(res), operation: "close")
+            throw CDBError.native(operation: "close", code: Int(res))
         }
     }
 
@@ -178,7 +186,7 @@ public class CDB {
     /// The callback must not close this database.
     public func forEachData(_ body: @escaping (Data, Data) throws -> Void) throws {
         guard !isClosed else {
-            throw CDBError(errno: -1, operation: "forEachData")
+            throw CDBError.closed(operation: "forEachData")
         }
 
         activeIterationCount += 1
@@ -203,7 +211,7 @@ public class CDB {
             throw error
         }
         if res < 0 {
-            throw CDBError(errno: Int(res), operation: "forEach")
+            throw CDBError.native(operation: "forEach", code: Int(res))
         }
     }
 
@@ -216,12 +224,12 @@ public class CDB {
 
     fileprivate func readData(at pos: cdb_file_pos_t) throws -> Data {
         guard !isClosed else {
-            throw CDBError(errno: -1, operation: "read")
+            throw CDBError.closed(operation: "read")
         }
 
         let res = cdb_seek(self.db, pos.position)
         if res != 0 {
-            throw CDBError(errno: Int(res), operation: "seek")
+            throw CDBError.native(operation: "seek", code: Int(res))
         }
 
         if pos.length == 0 {
@@ -234,7 +242,7 @@ public class CDB {
         }
 
         if read_res != 0 {
-            throw CDBError(errno: Int(read_res), operation: "read")
+            throw CDBError.native(operation: "read", code: Int(read_res))
         }
 
         return data
