@@ -50,6 +50,14 @@ do {
 - `.read` - Open for reading only
 - `.write` - Open for writing (creates new database)
 
+## Thread Safety
+
+A `CDB` instance is not thread-safe. Serialize all operations on the same
+instance, including `close()`. Separate `CDB` instances may be used
+concurrently.
+
+Do not call `close()` from inside a `forEach` callback.
+
 ## License
 
 This project is licensed under the same terms as the original [CDB library](https://github.com/howerj/cdb).

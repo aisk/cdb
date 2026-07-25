@@ -26,6 +26,11 @@ public enum Mode: Int32 {
     case write = 1
 }
 
+/// A handle to a constant database file.
+///
+/// `CDB` instances are not thread-safe. Serialize all operations performed on
+/// the same instance, including calls to ``close()``. Separate instances may be
+/// used concurrently.
 public class CDB {
     private var db: OpaquePointer?
     private var isClosed = false
@@ -139,6 +144,9 @@ public class CDB {
         }
     }
 
+    /// Closes the database and, in write mode, finalizes it on disk.
+    ///
+    /// Do not call this method from a ``forEach(_:)`` callback.
     public func close() throws {
         guard !isClosed else { return }
         guard activeIterationCount == 0 else {
@@ -156,6 +164,9 @@ public class CDB {
         }
     }
 
+    /// Visits every key-value pair in the database.
+    ///
+    /// The callback must not close this database.
     public func forEach(_ body: @escaping (String, String) throws -> Void) throws {
         guard !isClosed else {
             throw CDBError(errno: -1, operation: "forEach")
