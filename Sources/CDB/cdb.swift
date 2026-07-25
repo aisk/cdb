@@ -140,11 +140,16 @@ public class CDB {
 
     public func close() throws {
         guard !isClosed else { return }
-        let res = cdb_close(db)
+        // cdb_close always releases the underlying handle, including when
+        // finalization or closing the file fails.
+        let handle = db
+        db = nil
+        isClosed = true
+
+        let res = cdb_close(handle)
         if res != 0 {
             throw CDBError(errno: Int(res), operation: "close")
         }
-        isClosed = true
     }
 
     public func forEach(_ body: @escaping (String, String) throws -> Void) throws {
