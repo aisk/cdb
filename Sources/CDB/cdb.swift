@@ -69,6 +69,27 @@ public class CDB {
         }
     }
 
+    /// Opens a database for the duration of `body` and closes it before
+    /// returning.
+    ///
+    /// In write mode, a finalization error from ``close()`` is propagated when
+    /// `body` succeeds. If `body` throws, its error takes precedence.
+    public static func withDatabase<Result>(
+        filename: String,
+        mode: Mode,
+        _ body: (CDB) throws -> Result
+    ) throws -> Result {
+        let database = try CDB(filename: filename, mode: mode)
+        do {
+            let result = try body(database)
+            try database.close()
+            return result
+        } catch {
+            try? database.close()
+            throw error
+        }
+    }
+
     public func add(key: String, value: String) throws {
         try add(key: Data(key.utf8), value: Data(value.utf8))
     }

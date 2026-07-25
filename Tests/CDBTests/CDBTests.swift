@@ -184,4 +184,30 @@ final class CDBTests: XCTestCase {
         XCTAssertEqual(count, 2)
         try reader.close()
     }
+
+    func testWithDatabaseClosesAndFinalizes() throws {
+        try CDB.withDatabase(filename: "scoped_test.cdb", mode: .write) { db in
+            try db.add(key: "key", value: "value")
+        }
+
+        let value = try CDB.withDatabase(
+            filename: "scoped_test.cdb",
+            mode: .read
+        ) { db in
+            try db.string(forKey: "key")
+        }
+        XCTAssertEqual(value, "value")
+    }
+
+    func testWithDatabasePreservesBodyError() throws {
+        enum TestError: Error, Equatable { case expected }
+
+        XCTAssertThrowsError(
+            try CDB.withDatabase(filename: "scoped_error_test.cdb", mode: .write) { _ in
+                throw TestError.expected
+            }
+        ) { error in
+            XCTAssertEqual(error as? TestError, .expected)
+        }
+    }
 }

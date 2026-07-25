@@ -46,6 +46,7 @@ do {
 - `count(key: String) throws -> UInt64` - Count values for a key
 - `forEachData(_:) throws` - Visit all keys and values without decoding
 - `close() throws` - Close the database
+- `withDatabase(filename:mode:_:) throws` - Use a database within a managed scope
 - `subscript(key: String) throws -> String?` - Dictionary-like access
 
 ### Modes
