@@ -49,10 +49,10 @@ do {
 - `withDatabase(filename:mode:_:) throws` - Use a database within a managed scope
 - `subscript(key: String) throws -> String?` - Dictionary-like access
 
-### Modes
+### Access Modes
 
-- `.read` - Open for reading only
-- `.write` - Open for writing (creates new database)
+- `CDB.AccessMode.read` - Open for reading only
+- `CDB.AccessMode.write` - Open for writing (creates new database)
 
 ## Thread Safety
 

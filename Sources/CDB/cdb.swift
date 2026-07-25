@@ -46,22 +46,22 @@ public enum CDBError: Error, LocalizedError, Equatable {
     }
 }
 
-public enum Mode: Int32 {
-    case read = 0
-    case write = 1
-}
-
 /// A handle to a constant database file.
 ///
 /// `CDB` instances are not thread-safe. Serialize all operations performed on
 /// the same instance, including calls to ``close()``. Separate instances may be
 /// used concurrently.
 public final class CDB {
+    public enum AccessMode: Int32 {
+        case read = 0
+        case write = 1
+    }
+
     private var db: OpaquePointer?
     private var isClosed = false
     private var activeIterationCount = 0
 
-    public init(filename: String, mode: Mode) throws {
+    public init(filename: String, mode: AccessMode) throws {
         var raw_options = cdb_host_options
         let res = cdb_open(&self.db, &raw_options, mode.rawValue, filename)
         if res != 0 {
@@ -76,7 +76,7 @@ public final class CDB {
     /// `body` succeeds. If `body` throws, its error takes precedence.
     public static func withDatabase<Result>(
         filename: String,
-        mode: Mode,
+        mode: AccessMode,
         _ body: (CDB) throws -> Result
     ) throws -> Result {
         let database = try CDB(filename: filename, mode: mode)
