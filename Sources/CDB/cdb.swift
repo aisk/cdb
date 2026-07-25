@@ -30,6 +30,7 @@ public enum CDBError: Error, LocalizedError, Equatable {
     case closed(operation: String)
     case invalidUTF8(context: String)
     case operationInProgress(operation: String)
+    case wrongMode(operation: String, required: CDB.AccessMode)
     case native(operation: String, code: Int)
 
     public var errorDescription: String? {
@@ -40,6 +41,8 @@ public enum CDBError: Error, LocalizedError, Equatable {
             return "CDB \(context) is not valid UTF-8"
         case .operationInProgress(let operation):
             return "Cannot perform CDB \(operation) while another operation is in progress"
+        case .wrongMode(let operation, let required):
+            return "CDB \(operation) requires \(required) mode"
         case .native(let operation, let code):
             return "CDB \(operation) failed with error code: \(code)"
         }
@@ -60,8 +63,10 @@ public final class CDB {
     private var db: OpaquePointer?
     private var isClosed = false
     private var activeIterationCount = 0
+    private let mode: AccessMode
 
     public init(filename: String, mode: AccessMode) throws {
+        self.mode = mode
         var raw_options = cdb_host_options
         let res = cdb_open(&self.db, &raw_options, mode.rawValue, filename)
         if res != 0 {
@@ -106,6 +111,9 @@ public final class CDB {
         guard !isClosed else {
             throw CDBError.closed(operation: "add")
         }
+        guard mode == .write else {
+            throw CDBError.wrongMode(operation: "add", required: .write)
+        }
 
         try withCDBBuffer(for: key) { keyBuffer in
             try withCDBBuffer(for: value) { valueBuffer in
@@ -136,6 +144,9 @@ public final class CDB {
         guard !isClosed else {
             throw CDBError.closed(operation: "get")
         }
+        guard mode == .read else {
+            throw CDBError.wrongMode(operation: "get", required: .read)
+        }
 
         return try withCDBBuffer(for: key) { keyBuffer in
             var value_info = cdb_file_pos_t(position: 0, length: 0)
@@ -159,6 +170,9 @@ public final class CDB {
     public func count(key: Data) throws -> UInt64 {
         guard !isClosed else {
             throw CDBError.closed(operation: "count")
+        }
+        guard mode == .read else {
+            throw CDBError.wrongMode(operation: "count", required: .read)
         }
 
         return try withCDBBuffer(for: key) { keyBuffer in
@@ -211,6 +225,9 @@ public final class CDB {
     public func forEachData(_ body: @escaping (Data, Data) throws -> Void) throws {
         guard !isClosed else {
             throw CDBError.closed(operation: "forEachData")
+        }
+        guard mode == .read else {
+            throw CDBError.wrongMode(operation: "forEachData", required: .read)
         }
 
         activeIterationCount += 1

@@ -210,4 +210,26 @@ final class CDBTests: XCTestCase {
             XCTAssertEqual(error as? TestError, .expected)
         }
     }
+
+    func testOperationsValidateAccessMode() throws {
+        let writer = try CDB(filename: "mode_test.cdb", mode: .write)
+        XCTAssertThrowsError(try writer.data(forKey: "key")) { error in
+            XCTAssertEqual(
+                error as? CDBError,
+                .wrongMode(operation: "get", required: .read)
+            )
+        }
+        try writer.add(key: "key", value: "value")
+        try writer.close()
+
+        let reader = try CDB(filename: "mode_test.cdb", mode: .read)
+        XCTAssertThrowsError(try reader.add(key: "key", value: "other")) { error in
+            XCTAssertEqual(
+                error as? CDBError,
+                .wrongMode(operation: "add", required: .write)
+            )
+        }
+        XCTAssertEqual(try reader.string(forKey: "key"), "value")
+        try reader.close()
+    }
 }
