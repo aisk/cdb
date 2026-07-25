@@ -43,7 +43,7 @@ do {
 - `get(key: String, at index: UInt64 = 0) throws -> Data?` - Get binary data
 - `count(key: String) throws -> UInt64` - Count values for a key
 - `close() throws` - Close the database
-- `subscript(key: String) -> String?` - Dictionary-like access
+- `subscript(key: String) throws -> String?` - Dictionary-like access
 
 ### Modes
 

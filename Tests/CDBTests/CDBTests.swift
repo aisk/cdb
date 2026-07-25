@@ -32,14 +32,15 @@ final class CDBTests: XCTestCase {
         }
         XCTAssertEqual(items, ["foo": "bar", "hello": "world", "binary": "\u{01}\u{02}\u{03}\u{04}"])
 
-        XCTAssertEqual(db2["foo"], "bar")
-        XCTAssertEqual(db2["hello"], "world")
-        XCTAssertNil(db2["nonexistent"])
+        XCTAssertEqual(try db2["foo"], "bar")
+        XCTAssertEqual(try db2["hello"], "world")
+        XCTAssertNil(try db2["nonexistent"])
 
         let retrievedData: Data? = try db2.get(key: "binary")
         XCTAssertEqual(retrievedData, testData)
 
         try db2.close()
+        XCTAssertThrowsError(try db2["foo"])
     }
 
     func testBinaryValueWithNullBytes() throws {

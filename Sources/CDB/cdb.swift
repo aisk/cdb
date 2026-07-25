@@ -218,7 +218,9 @@ public class CDB {
     }
 
     public subscript(key: String) -> String? {
-        return try? get(key: key)
+        get throws {
+            return try get(key: key)
+        }
     }
 }
 
