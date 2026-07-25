@@ -56,7 +56,7 @@ public enum Mode: Int32 {
 /// `CDB` instances are not thread-safe. Serialize all operations performed on
 /// the same instance, including calls to ``close()``. Separate instances may be
 /// used concurrently.
-public class CDB {
+public final class CDB {
     private var db: OpaquePointer?
     private var isClosed = false
     private var activeIterationCount = 0
