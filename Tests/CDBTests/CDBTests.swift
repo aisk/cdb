@@ -165,4 +165,23 @@ final class CDBTests: XCTestCase {
         XCTAssertEqual(entries.first?.1, binaryValue)
         try reader.close()
     }
+
+    func testStringAPIsRejectInvalidUTF8() throws {
+        let writer = try CDB(filename: "invalid_utf8_test.cdb", mode: .write)
+        try writer.add(key: "invalid", value: Data([0xff]))
+        try writer.add(key: Data([0xff]), value: "value")
+        try writer.close()
+
+        let reader = try CDB(filename: "invalid_utf8_test.cdb", mode: .read)
+        XCTAssertThrowsError(try reader.string(forKey: "invalid")) { error in
+            XCTAssertEqual(error as? CDBError, .invalidUTF8(context: "value"))
+        }
+        XCTAssertEqual(try reader.data(forKey: "invalid"), Data([0xff]))
+        XCTAssertThrowsError(try reader.forEach { _, _ in })
+
+        var count = 0
+        try reader.forEachData { _, _ in count += 1 }
+        XCTAssertEqual(count, 2)
+        try reader.close()
+    }
 }

@@ -61,6 +61,10 @@ concurrently.
 
 Do not call `close()` from inside a `forEach` callback.
 
+String APIs require valid UTF-8 and throw `CDBError.invalidUTF8` when stored
+bytes cannot be decoded. Use `data(forKey:)` or `forEachData(_:)` for arbitrary
+binary content.
+
 ## License
 
 This project is licensed under the same terms as the original [CDB library](https://github.com/howerj/cdb).

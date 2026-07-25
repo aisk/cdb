@@ -28,6 +28,7 @@ private func withCDBBuffer<Result>(
 
 public enum CDBError: Error, LocalizedError, Equatable {
     case closed(operation: String)
+    case invalidUTF8(context: String)
     case operationInProgress(operation: String)
     case native(operation: String, code: Int)
 
@@ -35,6 +36,8 @@ public enum CDBError: Error, LocalizedError, Equatable {
         switch self {
         case .closed(let operation):
             return "Cannot perform CDB \(operation) because the database is closed"
+        case .invalidUTF8(let context):
+            return "CDB \(context) is not valid UTF-8"
         case .operationInProgress(let operation):
             return "Cannot perform CDB \(operation) while another operation is in progress"
         case .native(let operation, let code):
@@ -101,7 +104,7 @@ public class CDB {
         guard let data = try data(forKey: key, at: index) else {
             return nil
         }
-        return String(decoding: data, as: UTF8.self)
+        return try decodeUTF8(data, context: "value")
     }
 
     public func data(forKey key: String, at index: UInt64 = 0) throws -> Data? {
@@ -175,8 +178,8 @@ public class CDB {
     public func forEach(_ body: @escaping (String, String) throws -> Void) throws {
         try forEachData { key, value in
             try body(
-                String(decoding: key, as: UTF8.self),
-                String(decoding: value, as: UTF8.self)
+                self.decodeUTF8(key, context: "key"),
+                self.decodeUTF8(value, context: "value")
             )
         }
     }
@@ -215,11 +218,11 @@ public class CDB {
         }
     }
 
-    fileprivate func readString(at pos: cdb_file_pos_t) throws -> String {
-        // Decode exactly `pos.length` bytes; do NOT rely on a NUL terminator,
-        // otherwise values containing 0x00 would be silently truncated.
-        let data = try readData(at: pos)
-        return String(decoding: data, as: UTF8.self)
+    private func decodeUTF8(_ data: Data, context: String) throws -> String {
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw CDBError.invalidUTF8(context: context)
+        }
+        return string
     }
 
     fileprivate func readData(at pos: cdb_file_pos_t) throws -> Data {
