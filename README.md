@@ -43,8 +43,12 @@ do {
 - `add(key: Data, value: String) throws` - Add a string value with a binary key
 - `add(key: Data, value: Data) throws` - Add a binary key and value
 - `string(forKey: String, at index: UInt64 = 0) throws -> String?` - Get a string value
+- `string(forKey: Data, at index: UInt64 = 0) throws -> String?` - Get a string value using a binary key
 - `data(forKey: String, at index: UInt64 = 0) throws -> Data?` - Get binary data
+- `data(forKey: Data, at index: UInt64 = 0) throws -> Data?` - Get binary data using a binary key
 - `count(key: String) throws -> UInt64` - Count values for a key
+- `count(key: Data) throws -> UInt64` - Count values for a binary key
+- `forEach(_:) throws` - Visit all keys and values as strings
 - `forEachData(_:) throws` - Visit all keys and values without decoding
 - `close() throws` - Close the database
 - `withDatabase(filename:mode:_:) throws` - Use a database within a managed scope
@@ -63,6 +67,8 @@ instance, including `close()`. Separate `CDB` instances may be used
 concurrently.
 
 Do not call `close()` from inside a `forEach` callback.
+
+## Text Encoding
 
 String APIs require valid UTF-8 and throw `CDBError.invalidUTF8` when stored
 bytes cannot be decoded. Use `data(forKey:)` or `forEachData(_:)` for arbitrary
