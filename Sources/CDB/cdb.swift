@@ -29,6 +29,7 @@ public enum Mode: Int32 {
 public class CDB {
     private var db: OpaquePointer?
     private var isClosed = false
+    private var activeIterationCount = 0
 
     public init(filename: String, mode: Mode) throws {
         var raw_options = cdb_host_options
@@ -140,6 +141,9 @@ public class CDB {
 
     public func close() throws {
         guard !isClosed else { return }
+        guard activeIterationCount == 0 else {
+            throw CDBError(errno: -1, operation: "close during iteration")
+        }
         // cdb_close always releases the underlying handle, including when
         // finalization or closing the file fails.
         let handle = db
@@ -156,6 +160,9 @@ public class CDB {
         guard !isClosed else {
             throw CDBError(errno: -1, operation: "forEach")
         }
+
+        activeIterationCount += 1
+        defer { activeIterationCount -= 1 }
 
         let helper = ForEachHelper(cdb: self, body: body)
         let helperPtr = Unmanaged.passUnretained(helper).toOpaque()

@@ -115,4 +115,30 @@ final class CDBTests: XCTestCase {
 
         try db2.close()
     }
+
+    func testForEachCannotCloseDatabaseFromCallback() throws {
+        let writer = try CDB(filename: "foreach_close_test.cdb", mode: .write)
+        try writer.add(key: "a", value: "1")
+        try writer.add(key: "b", value: "2")
+        try writer.close()
+
+        let reader = try CDB(filename: "foreach_close_test.cdb", mode: .read)
+        var closeError: Error?
+        var count = 0
+
+        try reader.forEach { _, _ in
+            count += 1
+            do {
+                try reader.close()
+            } catch {
+                closeError = error
+            }
+        }
+
+        XCTAssertNotNil(closeError)
+        XCTAssertEqual(count, 2)
+        let value: String? = try reader.get(key: "a")
+        XCTAssertEqual(value, "1")
+        try reader.close()
+    }
 }
