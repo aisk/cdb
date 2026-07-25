@@ -232,4 +232,22 @@ final class CDBTests: XCTestCase {
         XCTAssertEqual(try reader.string(forKey: "key"), "value")
         try reader.close()
     }
+
+    func testFileURLAPIs() throws {
+        let url = URL(fileURLWithPath: "url_test.cdb")
+        try CDB.withDatabase(fileURL: url, mode: .write) { db in
+            try db.add(key: "key", value: "value")
+        }
+        let reader = try CDB(fileURL: url, mode: .read)
+        XCTAssertEqual(try reader.string(forKey: "key"), "value")
+        try reader.close()
+
+        XCTAssertThrowsError(
+            try CDB(fileURL: URL(string: "https://example.com/db")!, mode: .read)
+        ) { error in
+            guard case CDBError.invalidFileURL = error else {
+                return XCTFail("Expected invalidFileURL, got \(error)")
+            }
+        }
+    }
 }

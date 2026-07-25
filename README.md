@@ -37,6 +37,7 @@ do {
 ### Main Methods
 
 - `init(filename: String, mode: CDB.AccessMode) throws` - Open a CDB file
+- `init(fileURL: URL, mode: CDB.AccessMode) throws` - Open a CDB file URL
 - `add(key: String, value: String) throws` - Add a string value
 - `add(key: String, value: Data) throws` - Add binary data
 - `add(key: Data, value: String) throws` - Add a string value with a binary key
@@ -47,6 +48,7 @@ do {
 - `forEachData(_:) throws` - Visit all keys and values without decoding
 - `close() throws` - Close the database
 - `withDatabase(filename:mode:_:) throws` - Use a database within a managed scope
+- `withDatabase(fileURL:mode:_:) throws` - Use a file URL within a managed scope
 - `subscript(key: String) throws -> String?` - Dictionary-like access
 
 ### Access Modes

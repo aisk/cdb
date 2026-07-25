@@ -28,6 +28,7 @@ private func withCDBBuffer<Result>(
 
 public enum CDBError: Error, LocalizedError, Equatable {
     case closed(operation: String)
+    case invalidFileURL(URL)
     case invalidUTF8(context: String)
     case operationInProgress(operation: String)
     case wrongMode(operation: String, required: CDB.AccessMode)
@@ -37,6 +38,8 @@ public enum CDBError: Error, LocalizedError, Equatable {
         switch self {
         case .closed(let operation):
             return "Cannot perform CDB \(operation) because the database is closed"
+        case .invalidFileURL(let url):
+            return "CDB requires a file URL, received: \(url)"
         case .invalidUTF8(let context):
             return "CDB \(context) is not valid UTF-8"
         case .operationInProgress(let operation):
@@ -74,6 +77,13 @@ public final class CDB {
         }
     }
 
+    public convenience init(fileURL: URL, mode: AccessMode) throws {
+        guard fileURL.isFileURL else {
+            throw CDBError.invalidFileURL(fileURL)
+        }
+        try self.init(filename: fileURL.path, mode: mode)
+    }
+
     /// Opens a database for the duration of `body` and closes it before
     /// returning.
     ///
@@ -85,6 +95,22 @@ public final class CDB {
         _ body: (CDB) throws -> Result
     ) throws -> Result {
         let database = try CDB(filename: filename, mode: mode)
+        do {
+            let result = try body(database)
+            try database.close()
+            return result
+        } catch {
+            try? database.close()
+            throw error
+        }
+    }
+
+    public static func withDatabase<Result>(
+        fileURL: URL,
+        mode: AccessMode,
+        _ body: (CDB) throws -> Result
+    ) throws -> Result {
+        let database = try CDB(fileURL: fileURL, mode: mode)
         do {
             let result = try body(database)
             try database.close()
